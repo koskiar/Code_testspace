@@ -1,0 +1,74 @@
+{
+  "sequences": [
+    {
+      "name": "Full Functional Suite",
+      "tests": [
+        "Power Check",
+        "Sensor Read",
+        "Button Press"
+      ]
+    },
+    {
+      "name": "Power-Only Diagnostics",
+      "tests": [
+        "Power Check"
+      ]
+    },
+    {
+      "name": "Sensor Calibration Suite",
+      "tests": [
+        "Sensor Read"
+      ]
+    }
+  ],
+  "tests": {
+    "Power Check": {
+      "module": "power_check",
+      "timeout": 30,
+      "subtests": [
+        {
+          "name": "Voltage OK",
+          "condition": ">= 11.5",
+          "units": "V"
+        },
+        {
+          "name": "Current OK",
+          "condition": ">= 0.05",
+          "units": "A"
+        }
+      ]
+    },
+    "Sensor Read": {
+      "module": "sensor_read",
+      "timeout": 45,
+      "subtests": [
+        {
+          "name": "ADC Ch 0",
+          "condition": "0.5-1.5",
+          "units": "V"
+        },
+        {
+          "name": "ADC Ch 1",
+          "condition": "0.5-1.5",
+          "units": "V"
+        }
+      ]
+    },
+    "Button Press": {
+      "module": "button_press",
+      "timeout": 20,
+      "subtests": [
+        {
+          "name": "Button 1",
+          "condition": "Pressed",
+          "units": ""
+        },
+        {
+          "name": "Button 2",
+          "condition": "Pressed",
+          "units": ""
+        }
+      ]
+    }
+  }
+}

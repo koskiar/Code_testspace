@@ -1,0 +1,261 @@
+import json
+from pathlib import Path
+import tkinter as tk
+from tkinter import ttk, simpledialog, messagebox
+
+from config import TEST_DEFINITION_FILE
+
+
+class TestBuilderPanel(ttk.LabelFrame):
+    def __init__(self, parent, ui):
+        super().__init__(parent, text="Test Builder", padding=(10, 8), style="History.TLabelframe")
+        self.ui = ui
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        # Top: test list
+        ttk.Label(self, text="Defined Tests:").grid(row=0, column=0, sticky="w")
+        self.test_list = tk.Listbox(self, height=8)
+        self.test_list.grid(row=1, column=0, sticky="nsew", pady=(5, 5))
+
+        # Buttons
+        btn_frame = ttk.Frame(self)
+        btn_frame.grid(row=2, column=0, sticky="ew", pady=(5, 0))
+        btn_frame.columnconfigure(0, weight=1)
+
+        ttk.Button(btn_frame, text="New Test", command=self.new_test).grid(row=0, column=0, sticky="w")
+        ttk.Button(btn_frame, text="Edit Test", command=self.edit_test).grid(row=0, column=1, sticky="w", padx=(5, 0))
+        ttk.Button(btn_frame, text="Delete Test", command=self.delete_test).grid(row=0, column=2, sticky="w", padx=(5, 0))
+
+        self._load_defs()
+        self._refresh_list()
+
+    # ---------- JSON helpers ----------
+    def _load_defs(self):
+        path = Path(TEST_DEFINITION_FILE)
+        with path.open() as f:
+            self.defs = json.load(f)
+
+    def _save_defs(self):
+        path = Path(TEST_DEFINITION_FILE)
+        with path.open("w") as f:
+            json.dump(self.defs, f, indent=2)
+        # refresh runner + UI sequence list
+        self.ui.runner.load_definitions()
+
+    # ---------- List handling ----------
+    def _refresh_list(self):
+        self.test_list.delete(0, "end")
+        for name in self.defs["tests"].keys():
+            self.test_list.insert("end", name)
+
+    def _get_selected_test_name(self):
+        sel = self.test_list.curselection()
+        if not sel:
+            return None
+        return self.test_list.get(sel[0])
+
+    # ---------- Actions ----------
+    def new_test(self):
+        name = simpledialog.askstring("New Test", "Test name:", parent=self)
+        if not name:
+            return
+        if name in self.defs["tests"]:
+            messagebox.showerror("Error", "Test name already exists.")
+            return
+
+        module = simpledialog.askstring("New Test", "Module name (no .py):", parent=self)
+        if not module:
+            return
+
+        timeout = simpledialog.askinteger("New Test", "Timeout (seconds):", initialvalue=30, parent=self)
+        if timeout is None:
+            return
+
+        # Minimal single-subtest default
+        self.defs["tests"][name] = {
+            "module": module,
+            "timeout": timeout,
+            "subtests": [
+                {
+                    "name": "Subtest 1",
+                    "condition": "PASS",
+                    "units": "",
+                    "command": ""
+                }
+            ]
+        }
+
+        self._save_defs()
+        self._generate_module(module, name)
+        self._refresh_list()
+
+    def edit_test(self):
+        name = self._get_selected_test_name()
+        if not name:
+            messagebox.showerror("Error", "No test selected.")
+            return
+
+        tdef = self.defs["tests"][name]
+
+        # Edit timeout
+        timeout = simpledialog.askinteger(
+            "Edit Test",
+            f"Timeout (seconds) for '{name}':",
+            initialvalue=tdef.get("timeout", 30),
+            parent=self
+        )
+        if timeout is None:
+            return
+        tdef["timeout"] = timeout
+
+        # Edit first subtest (simple but useful)
+        if tdef["subtests"]:
+            sub = tdef["subtests"][0]
+            sub_name = simpledialog.askstring(
+                "Edit Subtest",
+                "Subtest name:",
+                initialvalue=sub.get("name", "Subtest 1"),
+                parent=self
+            )
+            if sub_name:
+                sub["name"] = sub_name
+
+            cond = simpledialog.askstring(
+                "Edit Subtest",
+                "Condition (e.g. '>= 1.0', '0.5-1.5', 'PASS'):",
+                initialvalue=sub.get("condition", "PASS"),
+                parent=self
+            )
+            if cond is not None:
+                sub["condition"] = cond
+
+            units = simpledialog.askstring(
+                "Edit Subtest",
+                "Units (optional):",
+                initialvalue=sub.get("units", ""),
+                parent=self
+            )
+            if units is not None:
+                sub["units"] = units
+
+        self.defs["tests"][name] = tdef
+        self._save_defs()
+        self._refresh_list()
+
+    def delete_test(self):
+        name = self._get_selected_test_name()
+        if not name:
+            messagebox.showerror("Error", "No test selected.")
+            return
+
+        # Don't allow deleting core built-ins by accident
+        if name in ("Power Check", "Sensor Read", "Button Press"):
+            messagebox.showerror("Error", "Built-in tests cannot be deleted.")
+            return
+
+        if not messagebox.askyesno("Confirm", f"Delete test '{name}'?"):
+            return
+
+        # Remove from sequences
+        for seq in self.defs["sequences"]:
+            if name in seq["tests"]:
+                seq["tests"].remove(name)
+
+        module = self.defs["tests"][name]["module"]
+        del self.defs["tests"][name]
+        self._save_defs()
+        self._refresh_list()
+
+        # Optionally remove module file
+        mod_path = Path(__file__).resolve().parent.parent / "gpio_test" / f"{module}.py"
+        if mod_path.exists():
+            try:
+                mod_path.unlink()
+            except Exception:
+                pass
+
+    # ---------- Module generation ----------
+    def _generate_module(self, module_name: str, test_name: str):
+        """
+        For this mock setup, generate a simple template that always returns PASS
+        unless the condition explicitly fails. No real hardware/serial.
+        """
+        gpio_dir = Path(__file__).resolve().parent.parent / "gpio_test"
+        gpio_dir.mkdir(parents=True, exist_ok=True)
+        path = gpio_dir / f"{module_name}.py"
+
+        if path.exists():
+            return
+
+        template = template = f'''import time
+from core.serial_manager import read_value
+
+
+def run(test_def: dict) -> dict:
+    start = time.time()
+
+    subtests = []
+    overall = "PASS"
+
+    for sub in test_def["subtests"]:
+        name = sub["name"]
+        cond = sub["condition"]
+        units = sub.get("units", "")
+        command = sub.get("command", "")
+
+        # Ask the Arduino mock for a reading
+        reading = read_value(command)
+
+        # If no response, treat as failure
+        if reading is None:
+            result = "FAIL"
+        else:
+            result = _evaluate_condition(reading, cond)
+
+        if result == "FAIL":
+            overall = "FAIL"
+
+        subtests.append({{
+            "name": name,
+            "reading": reading,
+            "units": units,
+            "condition": cond,
+            "result": result
+        }})
+
+    end = time.time()
+
+    return {{
+        "name": "{test_name}",
+        "time_started": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(start)),
+        "time_ended": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(end)),
+        "result": overall,
+        "subtests": subtests
+    }}
+
+
+def _evaluate_condition(reading, cond: str) -> str:
+    cond = (cond or "").strip()
+    try:
+        if "-" in cond:
+            low, high = cond.split("-")
+            low = float(low)
+            high = float(high)
+            return "PASS" if low <= float(reading) <= high else "FAIL"
+        elif cond.startswith(">="):
+            val = float(cond[2:].strip())
+            return "PASS" if float(reading) >= val else "FAIL"
+        elif cond.startswith("<="):
+            val = float(cond[2:].strip())
+            return "PASS" if float(reading) <= val else "FAIL"
+        elif cond.upper() in ("PASS", "ANY", ""):
+            return "PASS"
+        else:
+            return "PASS"
+    except Exception:
+        return "FAIL"
+'''
+
+        path.write_text(template)

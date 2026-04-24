@@ -1,0 +1,173 @@
+import json
+from pathlib import Path
+import tkinter as tk
+from tkinter import ttk, simpledialog, messagebox
+
+from config import TEST_DEFINITION_FILE
+
+
+class SequenceBuilderPanel(ttk.LabelFrame):
+    def __init__(self, parent, ui):
+        super().__init__(parent, text="Sequence Builder", padding=(10, 8), style="History.TLabelframe")
+        self.ui = ui
+
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+        self.rowconfigure(2, weight=1)
+
+        # Load definitions
+        self._load_defs()
+
+        # ---------------- LEFT: SEQUENCE LIST ----------------
+        ttk.Label(self, text="Sequences:").grid(row=0, column=0, sticky="w")
+        self.seq_list = tk.Listbox(self, height=8)
+        self.seq_list.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
+        self.seq_list.bind("<<ListboxSelect>>", self._on_sequence_selected)
+
+        # ---------------- RIGHT: TEST LIST ----------------
+        ttk.Label(self, text="Available Tests:").grid(row=0, column=1, sticky="w")
+        self.test_list = tk.Listbox(self, height=8)
+        self.test_list.grid(row=1, column=1, sticky="nsew")
+
+        # ---------------- BUTTONS ----------------
+        btn_frame = ttk.Frame(self)
+        btn_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        btn_frame.columnconfigure(0, weight=1)
+
+        ttk.Button(btn_frame, text="New Sequence", command=self.new_sequence).grid(row=0, column=0, sticky="w")
+        ttk.Button(btn_frame, text="Delete Sequence", command=self.delete_sequence).grid(row=0, column=1, sticky="w", padx=(5, 0))
+        ttk.Button(btn_frame, text="Add Test →", command=self.add_test_to_sequence).grid(row=1, column=0, sticky="w", pady=(5, 0))
+        ttk.Button(btn_frame, text="← Remove Test", command=self.remove_test_from_sequence).grid(row=1, column=1, sticky="w", pady=(5, 0))
+
+        # Populate lists
+        self._refresh_sequences()
+        self._refresh_tests()
+
+    # ------------------------------------------------------------
+    # JSON LOAD/SAVE
+    # ------------------------------------------------------------
+    def _load_defs(self):
+        path = Path(TEST_DEFINITION_FILE)
+        with path.open() as f:
+            self.defs = json.load(f)
+
+    def _save_defs(self):
+        path = Path(TEST_DEFINITION_FILE)
+        with path.open("w") as f:
+            json.dump(self.defs, f, indent=2)
+
+        # Refresh runner + UI
+        self.ui.runner.load_definitions()
+
+    # ------------------------------------------------------------
+    # LIST POPULATION
+    # ------------------------------------------------------------
+    def _refresh_sequences(self):
+        self.seq_list.delete(0, "end")
+        for seq in self.defs["sequences"]:
+            self.seq_list.insert("end", seq["name"])
+
+    def _refresh_tests(self):
+        self.test_list.delete(0, "end")
+        for name in self.defs["tests"].keys():
+            self.test_list.insert("end", name)
+
+    # ------------------------------------------------------------
+    # SELECTION HELPERS
+    # ------------------------------------------------------------
+    def _get_selected_sequence(self):
+        sel = self.seq_list.curselection()
+        if not sel:
+            return None
+        name = self.seq_list.get(sel[0])
+        return next((s for s in self.defs["sequences"] if s["name"] == name), None)
+
+    def _get_selected_test(self):
+        sel = self.test_list.curselection()
+        if not sel:
+            return None
+        return self.test_list.get(sel[0])
+
+    # ------------------------------------------------------------
+    # SEQUENCE ACTIONS
+    # ------------------------------------------------------------
+    def new_sequence(self):
+        name = simpledialog.askstring("New Sequence", "Sequence name:", parent=self)
+        if not name:
+            return
+
+        if any(s["name"] == name for s in self.defs["sequences"]):
+            messagebox.showerror("Error", "Sequence already exists.")
+            return
+
+        self.defs["sequences"].append({"name": name, "tests": []})
+        self._save_defs()
+        self._refresh_sequences()
+
+    def delete_sequence(self):
+        seq = self._get_selected_sequence()
+        if not seq:
+            messagebox.showerror("Error", "No sequence selected.")
+            return
+
+        if not messagebox.askyesno("Confirm", f"Delete sequence '{seq['name']}'?"):
+            return
+
+        self.defs["sequences"].remove(seq)
+        self._save_defs()
+        self._refresh_sequences()
+
+    # ------------------------------------------------------------
+    # TEST MANAGEMENT
+    # ------------------------------------------------------------
+    def add_test_to_sequence(self):
+        seq = self._get_selected_sequence()
+        if not seq:
+            messagebox.showerror("Error", "No sequence selected.")
+            return
+
+        test = self._get_selected_test()
+        if not test:
+            messagebox.showerror("Error", "No test selected.")
+            return
+
+        if test in seq["tests"]:
+            messagebox.showinfo("Info", "Test already in sequence.")
+            return
+
+        seq["tests"].append(test)
+        self._save_defs()
+
+    def remove_test_from_sequence(self):
+        seq = self._get_selected_sequence()
+        if not seq:
+            messagebox.showerror("Error", "No sequence selected.")
+            return
+
+        test = self._get_selected_test()
+        if not test:
+            messagebox.showerror("Error", "No test selected.")
+            return
+
+        if test not in seq["tests"]:
+            messagebox.showinfo("Info", "Test not in sequence.")
+            return
+
+        seq["tests"].remove(test)
+        self._save_defs()
+
+    # ------------------------------------------------------------
+    # UI UPDATE WHEN SEQUENCE SELECTED
+    # ------------------------------------------------------------
+    def _on_sequence_selected(self, event=None):
+        seq = self._get_selected_sequence()
+        if not seq:
+            return
+
+        # Highlight tests that are in the sequence
+        self.test_list.selection_clear(0, "end")
+
+        for i in range(self.test_list.size()):
+            name = self.test_list.get(i)
+            if name in seq["tests"]:
+                self.test_list.selection_set(i)
