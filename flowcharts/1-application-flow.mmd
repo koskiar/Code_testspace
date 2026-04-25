@@ -1,0 +1,63 @@
+graph TD
+    A["🚀 Application Start<br/>main.py"] --> B["Load GUI<br/>gui/interface.py"]
+    B --> C["Initialize Styles<br/>gui/styles.py"]
+    C --> D["Build Layout<br/>gui/layout.py"]
+    D --> E["Create Runner Instance<br/>core/runner.py"]
+    E --> F["Load Test Definitions<br/>test_definations.json"]
+    F --> G["Load History<br/>core/history.py"]
+    G --> H["Display Main Window"]
+    
+    H --> I{User Action}
+    
+    I -->|Select Sequence| J["on_sequence_selected"]
+    I -->|Click Start| K["start_sequence"]
+    I -->|View History| L["on_history_selected"]
+    I -->|Scan Bluetooth| M["scan_devices"]
+    I -->|Dark Mode| N["toggle_dark_mode"]
+    
+    K --> O["Get Selected Sequence<br/>from JSON"]
+    O --> P["Get Test List<br/>from Sequence"]
+    P --> Q["For Each Test in Sequence"]
+    
+    Q --> R["Import Test Module<br/>gpio_test/*.py"]
+    R --> S["Execute test.run<br/>test_def"]
+    S --> T{Has Hardware?}
+    T -->|Yes| U["Real GPIO/Serial<br/>RPi.GPIO"]
+    T -->|No| V["Mock GPIO<br/>mock_gpio.py"]
+    U --> W["Get Test Result"]
+    V --> W
+    
+    W --> X["Update UI<br/>Display Status"]
+    X --> Y["Check Continue<br/>on Fail?"]
+    Y -->|FAIL & Don't Continue| Z["Stop Sequence"]
+    Y -->|PASS or Continue| AA{More Tests?}
+    AA -->|Yes| Q
+    AA -->|No| AB["Compile Results"]
+    Z --> AB
+    
+    AB --> AC["Save Results<br/>data_logger/logger.py"]
+    AC --> AD["Show Summary<br/>in History"]
+    AD --> AE["Update History List<br/>core/history.py"]
+    AE --> H
+    
+    J --> AF["Update Combo Box<br/>Show Test Details"]
+    AF --> H
+    
+    L --> AG["Load History File<br/>from results/"]
+    AG --> AH["Parse JSON"]
+    AH --> AI["Populate Tree View<br/>with Results"]
+    AI --> H
+    
+    M --> AJ["Create BluetoothManager<br/>core/bluetooth_manager.py"]
+    AJ --> AK["Async Scan BLE"]
+    AK --> AL["Filter Devices<br/>by Name Prefix"]
+    AL --> AM["Display in List<br/>with RSSI Bars"]
+    AM --> H
+    
+    style A fill:#0066cc,color:#fff
+    style H fill:#107c10,color:#fff
+    style K fill:#ff8c00,color:#fff
+    style S fill:#e81123,color:#fff
+    style W fill:#ffb900,color:#000
+    style AC fill:#107c10,color:#fff
+    style AD fill:#107c10,color:#fff

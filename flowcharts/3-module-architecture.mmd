@@ -1,0 +1,82 @@
+graph TB
+    subgraph "Entry Point"
+        MAIN["main.py"]
+    end
+    
+    subgraph "GUI Layer"
+        INTERFACE["interface.py<br/>Launcher"]
+        LAYOUT["layout.py<br/>Main UI Layout"]
+        STYLES["styles.py<br/>Theming & Colors"]
+        BUILDERS["test_builder_panel.py<br/>sequence_builder_panel.py"]
+    end
+    
+    subgraph "Core Logic"
+        RUNNER["runner.py<br/>Test Orchestration"]
+        HISTORY["history.py<br/>Result History"]
+        BT["bluetooth_manager.py<br/>BLE Scanning"]
+        SERIAL["serial_manager.py<br/>Serial Communication"]
+    end
+    
+    subgraph "Hardware Tests"
+        POWER["power_check.py<br/>Voltage/Current"]
+        SENSOR["sensor_read.py<br/>ADC Sensors"]
+        BUTTON["button_press.py<br/>GPIO Buttons"]
+        MOCKGPIO["mock_gpio.py<br/>Fallback GPIO"]
+    end
+    
+    subgraph "Data Persistence"
+        LOGGER["logger.py<br/>Save Results"]
+        RESULTS["results/<br/>JSON Files"]
+    end
+    
+    subgraph "Configuration"
+        CONFIG["config.py<br/>Settings"]
+        TESTDEF["test_definations.json<br/>Test Definitions"]
+    end
+    
+    subgraph "Utilities"
+        UTILS["utils.py<br/>Helper Functions"]
+    end
+    
+    MAIN --> INTERFACE
+    INTERFACE --> STYLES
+    INTERFACE --> LAYOUT
+    LAYOUT --> RUNNER
+    LAYOUT --> HISTORY
+    LAYOUT --> BUILDERS
+    
+    LAYOUT --> RUNNER
+    RUNNER --> CONFIG
+    RUNNER --> TESTDEF
+    RUNNER --> BT
+    RUNNER --> SERIAL
+    RUNNER --> UTILS
+    
+    RUNNER --> POWER
+    RUNNER --> SENSOR
+    RUNNER --> BUTTON
+    
+    POWER --> MOCKGPIO
+    SENSOR --> MOCKGPIO
+    BUTTON --> MOCKGPIO
+    
+    RUNNER --> LOGGER
+    LOGGER --> RESULTS
+    LOGGER --> UTILS
+    
+    HISTORY --> RESULTS
+    HISTORY --> TESTDEF
+    
+    BT --> CONFIG
+    SERIAL --> MOCKGPIO
+    
+    style MAIN fill:#0066cc,color:#fff,stroke:#000,stroke-width:3px
+    style INTERFACE fill:#4d94ff,color:#fff
+    style LAYOUT fill:#4d94ff,color:#fff
+    style STYLES fill:#4d94ff,color:#fff
+    style RUNNER fill:#e81123,color:#fff
+    style LOGGER fill:#107c10,color:#fff
+    style RESULTS fill:#107c10,color:#fff
+    style POWER fill:#ff8c00,color:#000
+    style SENSOR fill:#ff8c00,color:#000
+    style BUTTON fill:#ff8c00,color:#000

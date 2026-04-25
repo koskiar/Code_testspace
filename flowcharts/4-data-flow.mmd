@@ -1,0 +1,71 @@
+graph LR
+    subgraph "Configuration"
+        CFG["config.py<br/>DEFAULT_TIMEOUT<br/>RESULTS_DIR<br/>TEST_DEFINITION_FILE"]
+        JSON["test_definations.json<br/>Sequences<br/>Tests<br/>Subtests<br/>Conditions"]
+    end
+    
+    subgraph "User Input"
+        UI["UI Input<br/>Tester Name<br/>Board ID<br/>Sequence Selection<br/>Continue on Fail"]
+    end
+    
+    subgraph "Test Execution Pipeline"
+        RUNNER["Runner<br/>Gets Selected Sequence<br/>Builds Test Queue"]
+        EXEC["Test Module<br/>Executes on Hardware<br/>Returns Result"]
+        EVAL["Evaluator<br/>Compares Reading<br/>vs Condition<br/>PASS/FAIL"]
+    end
+    
+    subgraph "Hardware Layer"
+        GPIO["RPi.GPIO<br/>or<br/>Mock GPIO<br/>Sensor Data<br/>Voltage<br/>Current"]
+        HW["Raspberry Pi<br/>GPIO Pins<br/>ADC Channels<br/>Buttons"]
+    end
+    
+    subgraph "Results Processing"
+        RES["Result Record<br/>Test Name<br/>Status<br/>Duration<br/>Subtests<br/>Readings"]
+        META["Metadata<br/>Timestamp<br/>Tester<br/>Board ID<br/>Sequence"]
+    end
+    
+    subgraph "Data Storage"
+        STORAGE["results/<br/>YYYY-MM-DD_HH-MM-SS.json"]
+    end
+    
+    subgraph "History & Display"
+        HIST["History Manager<br/>Loads JSON Files<br/>Builds Index"]
+        DISPLAY["UI Display<br/>Tree View<br/>Summary Card<br/>Status Indicators"]
+    end
+    
+    CFG --> RUNNER
+    JSON --> RUNNER
+    UI --> RUNNER
+    
+    RUNNER --> EXEC
+    EXEC --> GPIO
+    HW --> GPIO
+    GPIO --> EVAL
+    
+    EVAL --> RES
+    UI --> META
+    RES --> META
+    
+    META --> RUNNER
+    RUNNER --> RES
+    RES --> DISPLAY
+    
+    RES --> STORAGE
+    STORAGE --> HIST
+    HIST --> DISPLAY
+    
+    DISPLAY --> UI
+    
+    style CFG fill:#f0f0f0,color:#000
+    style JSON fill:#f0f0f0,color:#000
+    style UI fill:#4d94ff,color:#fff
+    style RUNNER fill:#e81123,color:#fff
+    style EXEC fill:#ff8c00,color:#000
+    style EVAL fill:#ff8c00,color:#000
+    style GPIO fill:#ffb900,color:#000
+    style HW fill:#107c10,color:#fff
+    style RES fill:#0066cc,color:#fff
+    style META fill:#0066cc,color:#fff
+    style STORAGE fill:#107c10,color:#fff
+    style HIST fill:#107c10,color:#fff
+    style DISPLAY fill:#4d94ff,color:#fff

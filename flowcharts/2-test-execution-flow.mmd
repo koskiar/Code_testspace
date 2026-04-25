@@ -1,0 +1,58 @@
+graph TD
+    A["Test Sequence<br/>Initiated"] --> B["Load Sequence<br/>from test_definations.json"]
+    B --> C["Get Test List<br/>from Sequence"]
+    C --> D["Initialize<br/>Results Array"]
+    D --> E["For Each Test<br/>in List"]
+    
+    E --> F["Load Test<br/>Definition"]
+    F --> G["Get Test Module<br/>Path"]
+    G --> H["Import Module<br/>__import__"]
+    H --> I["Call module.run<br/>with test_def"]
+    
+    I --> J{Module<br/>Loaded?}
+    J -->|Error| K["Log Error<br/>Mark as FAILED"]
+    J -->|Success| L["Execute Test<br/>on Hardware"]
+    
+    L --> M{Hardware<br/>Available?}
+    M -->|RPi.GPIO Available| N["Use Real GPIO<br/>Read Sensors<br/>Check Voltages"]
+    M -->|Not Available| O["Use Mock GPIO<br/>Return Fake Data"]
+    
+    N --> P["Get Reading"]
+    O --> P
+    P --> Q["Compare with<br/>Condition"]
+    Q --> R{Condition<br/>Met?}
+    R -->|Yes| S["Result: PASS"]
+    R -->|No| T["Result: FAIL"]
+    
+    S --> U["Create Result<br/>Dictionary"]
+    T --> U
+    K --> U
+    
+    U --> V["Add Subtests<br/>Details"]
+    V --> W["Add Duration<br/>Add Timestamp"]
+    W --> X["Add to<br/>Results Array"]
+    
+    X --> Y["Update UI<br/>Tree View<br/>Progress Bar"]
+    Y --> Z{Failed?<br/>& Continue<br/>on Fail<br/>= False}
+    
+    Z -->|Yes, Stop| AA["Break Loop"]
+    Z -->|No, Continue| AB{More Tests<br/>in<br/>Sequence?}
+    
+    AB -->|Yes| E
+    AB -->|No| AA
+    
+    AA --> AC["Compile Run<br/>Record"]
+    AC --> AD["Add Metadata<br/>Tester Name<br/>Board ID<br/>Timestamp"]
+    AD --> AE["Save to JSON<br/>in results/"]
+    AE --> AF["Generate<br/>Summary"]
+    AF --> AG["Display Summary<br/>in UI"]
+    AG --> AH["Enable 'Run Remaining'<br/>or Return to<br/>Main Menu"]
+    
+    style A fill:#0066cc,color:#fff
+    style L fill:#e81123,color:#fff
+    style N fill:#107c10,color:#fff
+    style O fill:#ffb900,color:#000
+    style S fill:#107c10,color:#fff
+    style T fill:#e81123,color:#fff
+    style AE fill:#107c10,color:#fff
+    style AG fill:#107c10,color:#fff
